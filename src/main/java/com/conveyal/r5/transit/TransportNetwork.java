@@ -5,23 +5,25 @@ import com.conveyal.osmlib.OSM;
 import com.conveyal.r5.analyst.WebMercatorGridPointSet;
 import com.conveyal.r5.analyst.error.TaskError;
 import com.conveyal.r5.analyst.scenario.Scenario;
+import com.conveyal.r5.analyst.fare.InRoutingFareCalculator;
 import com.conveyal.r5.common.JsonUtilities;
 import com.conveyal.r5.kryo.KryoNetworkSerializer;
 import com.conveyal.r5.point_to_point.builder.TNBuilderConfig;
+import com.conveyal.r5.profile.GreedyFareCalculator;
+import com.conveyal.r5.profile.StreetMode;
+import com.conveyal.r5.streets.StreetLayer;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
-import com.conveyal.r5.analyst.fare.InRoutingFareCalculator;
-import com.conveyal.r5.profile.StreetMode;
 import com.google.common.io.Files;
 import com.vividsolutions.jts.geom.Envelope;
-import com.conveyal.r5.streets.StreetLayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.zip.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * This is a completely new replacement for Graph, Router etc.
@@ -120,6 +122,89 @@ public class TransportNetwork implements Serializable {
         transportNetwork.streetLayer = streetLayer;
         streetLayer.parentNetwork = transportNetwork;
         streetLayer.loadFromOsm(osm);
+        osm.close();
+
+        // The street index is needed for associating transit stops with the street network
+        // and for associating bike shares with the street network
+        streetLayer.indexStreets();
+
+        if (tnBuilderConfig.bikeRentalFile != null) {
+            streetLayer.associateBikeSharing(tnBuilderConfig, 500);
+        }
+
+        // Load transit data TODO remove need to supply street layer at this stage
+        TransitLayer transitLayer = new TransitLayer();
+
+        if (feeds != null) {
+            for (GTFSFeed feed : feeds) {
+                transitLayer.loadFromGtfs(feed);
+            }
+        } else {
+            for (String feedFile: gtfsSourceFiles) {
+                GTFSFeed feed = GTFSFeed.fromFile(feedFile);
+                transitLayer.loadFromGtfs(feed);
+                feed.close();
+            }
+        }
+        transportNetwork.transitLayer = transitLayer;
+        transitLayer.parentNetwork = transportNetwork;
+        // transitLayer.summarizeRoutesAndPatterns();
+
+        // The street index is needed for associating transit stops with the street network.
+        // FIXME indexStreets is called three times: in StreetLayer::loadFromOsm, just after loading the OSM, and here
+        streetLayer.indexStreets();
+        streetLayer.associateStops(transitLayer);
+        // Edge lists must be built after all inter-layer linking has occurred.
+        streetLayer.buildEdgeLists();
+        transitLayer.rebuildTransientIndexes();
+
+        // Create transfers
+        new TransferFinder(transportNetwork).findTransfers();
+        new TransferFinder(transportNetwork).findParkRideTransfer();
+
+        transportNetwork.fareCalculator = tnBuilderConfig.analysisFareCalculator;
+
+        if (transportNetwork.fareCalculator != null) transportNetwork.fareCalculator.transitLayer = transitLayer;
+
+        return transportNetwork;
+    }
+
+
+    /**
+     * Allows us to disable island pruning by setting two extra booleans to false. Used by the BEAM team (AAC 17/09/18)
+     */
+    public static TransportNetwork fromFiles(String osmSourceFile, List<String> gtfsSourceFiles,
+                                             TNBuilderConfig tnBuilderConfig,  boolean removeIslands,
+                                             boolean saveVertexIndex){
+        return fromFiles(osmSourceFile, gtfsSourceFiles, null, tnBuilderConfig, removeIslands, saveVertexIndex);
+    }
+
+    /**
+     * Allows us to disable island pruning by setting two extra booleans to false. Used by the BEAM team (AAC 17/09/18)
+     *
+     * @[param removeIslands Set to false to disable island pruning.
+     * @param saveVertexIndex Set to false to disable island pruning.
+     */
+    public static TransportNetwork fromFiles(String osmSourceFile, List<String> gtfsSourceFiles, List<GTFSFeed> feeds,
+                                             TNBuilderConfig tnBuilderConfig,  boolean removeIslands,
+                                             boolean saveVertexIndex){
+        System.out.println("Summarizing builder config: " + BUILDER_CONFIG_FILENAME);
+        System.out.println(tnBuilderConfig);
+        File dir = new File(osmSourceFile).getParentFile();
+
+        // Create a transport network to hold the street and transit layers
+        TransportNetwork transportNetwork = new TransportNetwork();
+
+        // Load OSM data into MapDB
+        OSM osm = new OSM(new File(dir,"osm.mapdb").getPath());
+        osm.intersectionDetection = true;
+        osm.readFromFile(osmSourceFile);
+
+        // Make street layer from OSM data in MapDB
+        StreetLayer streetLayer = new StreetLayer(tnBuilderConfig);
+        transportNetwork.streetLayer = streetLayer;
+        streetLayer.parentNetwork = transportNetwork;
+        streetLayer.loadFromOsm(osm, removeIslands, saveVertexIndex); // Only line changed
         osm.close();
 
         // The street index is needed for associating transit stops with the street network
