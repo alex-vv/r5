@@ -9,7 +9,6 @@ import com.conveyal.r5.analyst.fare.InRoutingFareCalculator;
 import com.conveyal.r5.common.JsonUtilities;
 import com.conveyal.r5.kryo.KryoNetworkSerializer;
 import com.conveyal.r5.point_to_point.builder.TNBuilderConfig;
-import com.conveyal.r5.profile.GreedyFareCalculator;
 import com.conveyal.r5.profile.StreetMode;
 import com.conveyal.r5.streets.StreetLayer;
 import com.google.common.hash.HashCode;
@@ -129,7 +128,7 @@ public class TransportNetwork implements Serializable {
         streetLayer.indexStreets();
 
         if (tnBuilderConfig.bikeRentalFile != null) {
-            streetLayer.associateBikeSharing(tnBuilderConfig, 500);
+            streetLayer.associateBikeSharing(tnBuilderConfig);
         }
 
         // Load transit data TODO remove need to supply street layer at this stage
@@ -264,7 +263,49 @@ public class TransportNetwork implements Serializable {
         return fromFiles(osmFile, gtfsFiles, null, config);
     }
 
-    public static TransportNetwork fromDirectory (File directory) throws DuplicateFeedException {
+	/**
+	 * Allows us to disable island pruning by setting two extra booleans to false. Used by the BEAM team (AAC 17/09/18)
+	 * @param directory
+	 * @return
+	 * @throws DuplicateFeedException
+	 */
+	public static TransportNetwork fromDirectory (File directory, boolean removeIslands, boolean saveVertexIndex)
+			throws DuplicateFeedException {
+		File osmFile = null;
+		List<String> gtfsFiles = new ArrayList<>();
+		TNBuilderConfig builderConfig = null;
+		//This can exit program if json file has errors.
+		builderConfig = loadJson(new File(directory, BUILDER_CONFIG_FILENAME));
+		for (File file : directory.listFiles()) {
+			switch (InputFileType.forFile(file)) {
+				case GTFS:
+					LOG.info("Found GTFS file {}", file);
+					gtfsFiles.add(file.getAbsolutePath());
+					break;
+				case OSM:
+					LOG.info("Found OSM file {}", file);
+					if (osmFile == null) {
+						osmFile = file;
+					} else {
+						LOG.warn("Can only load one OSM file at a time.");
+					}
+					break;
+				case DEM:
+					LOG.warn("DEM file '{}' not yet supported.", file);
+					break;
+				case OTHER:
+					LOG.warn("Skipping non-input file '{}'", file);
+			}
+		}
+		if (osmFile == null) {
+			LOG.error("An OSM PBF file is required to build a network.");
+			return null;
+		} else {
+			return fromFiles(osmFile.getAbsolutePath(), gtfsFiles, builderConfig, removeIslands, saveVertexIndex);
+		}
+	}
+
+	public static TransportNetwork fromDirectory (File directory) throws DuplicateFeedException {
         File osmFile = null;
         List<String> gtfsFiles = new ArrayList<>();
         TNBuilderConfig builderConfig = null;
