@@ -287,12 +287,16 @@ public class StreetRouter {
     }
 
     public StreetRouter (StreetLayer streetLayer) {
+        this(streetLayer, new BasicTraversalTimeCalculator(streetLayer, true));
+    }
+
+    public StreetRouter (StreetLayer streetLayer, TraversalTimeCalculator traversalTimeCalculator) {
         this.streetLayer = streetLayer;
         this.timeCalculator = streetLayer.edgeStore.edgeTraversalTimes;
         // If no per-edge timings were supplied in the network, fall back on simple default timings
         if (this.timeCalculator == null) {
             // TODO one of two things: 1) don't hardwire drive-on-right, or 2) https://en.wikipedia.org/wiki/Dagen_H
-            this.timeCalculator = new BasicTraversalTimeCalculator(streetLayer, true);
+            this.timeCalculator = traversalTimeCalculator;
         }
     }
 
