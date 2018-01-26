@@ -288,13 +288,13 @@ public class StreetRouter {
     }
 
     public StreetRouter (StreetLayer streetLayer) {
-        this(streetLayer, new EdgeStore.DefaultTravelTimeCalculator());
+        this(streetLayer, new EdgeStore.DefaultTravelTimeCalculator(), new TurnCostCalculator(streetLayer, true));
     }
 
-    public StreetRouter (StreetLayer streetLayer, TravelTimeCalculator travelTimeCalculator) {
+    public StreetRouter (StreetLayer streetLayer, TravelTimeCalculator travelTimeCalculator, TurnCostCalculator turnCostCalculator) {
         this.streetLayer = streetLayer;
         // TODO one of two things: 1) don't hardwire drive-on-right, or 2) https://en.wikipedia.org/wiki/Dagen_H
-        this.turnCostCalculator = new TurnCostCalculator(streetLayer, true);
+        this.turnCostCalculator = turnCostCalculator;
         this.travelTimeCalculator = travelTimeCalculator;
     }
 
