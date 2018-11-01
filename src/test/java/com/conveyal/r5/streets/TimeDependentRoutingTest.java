@@ -36,7 +36,7 @@ public class TimeDependentRoutingTest {
 
         assertEquals(24, stateAtVertex.durationSeconds);
 
-        StreetRouter anotherStreetRouter = new StreetRouter(streetLayer, (edge, durationSeconds, streetMode, req) -> 30, new TurnCostCalculator(streetLayer, true));
+        StreetRouter anotherStreetRouter = new StreetRouter(streetLayer, (edge, durationSeconds, streetMode, req) -> 30, new TurnCostCalculator(streetLayer, true), new EdgeStore.DefaultTravelCostCalculator());
         anotherStreetRouter.setOrigin(one);
         anotherStreetRouter.route();
         StreetRouter.State anotherStateAtVertex = anotherStreetRouter.getStateAtVertex(three);
@@ -44,7 +44,7 @@ public class TimeDependentRoutingTest {
         assertEquals(60, anotherStateAtVertex.durationSeconds);
 
         // Time dependent. This should evaluate (t_n = t_n-1 + (t_n-1 + 40), t_0 = 0) at n=2
-        StreetRouter yetAnotherStreetRouter = new StreetRouter(streetLayer, (edge, durationSeconds, streetMode, req) -> durationSeconds + 40, new TurnCostCalculator(streetLayer, true));
+        StreetRouter yetAnotherStreetRouter = new StreetRouter(streetLayer, (edge, durationSeconds, streetMode, req) -> durationSeconds + 40, new TurnCostCalculator(streetLayer, true), new EdgeStore.DefaultTravelCostCalculator());
         yetAnotherStreetRouter.setOrigin(one);
         yetAnotherStreetRouter.route();
         StreetRouter.State yetAnotherStateAtVertex = yetAnotherStreetRouter.getStateAtVertex(three);
