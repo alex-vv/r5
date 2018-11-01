@@ -595,7 +595,8 @@ public class EdgeStore implements Serializable {
                 StreetRouter.State s0,
                 StreetMode streetMode,
                 ProfileRequest req,
-                TraversalTimeCalculator timeCalculator
+                TraversalTimeCalculator timeCalculator,
+                TravelCostCalculator travelCostCalculator
         ) {
             // The vertex we'll be at after the traversal
             // TODO check/assert that s0 is at the other vertex, at the other end of the edge.
@@ -658,6 +659,11 @@ public class EdgeStore implements Serializable {
                 if (!getFlag(EdgeFlag.ALLOWS_CAR)) {
                     return null;
                 }
+
+            } else if (streetMode == StreetMode.CAR && getFlag(EdgeFlag.ALLOWS_CAR)) {
+                weight = travelCostCalculator.getGeneralizedTravelCost(this, s0.durationSeconds, time);
+            } else {
+                return null; // this mode cannot traverse this edge
             }
 
             s1.streetMode = streetMode;
@@ -1247,5 +1253,13 @@ public class EdgeStore implements Serializable {
         forEachTemporarilyDeletedEdge(consumer);
     }
 
+
+    public static class DefaultTravelCostCalculator implements TravelCostCalculator {
+        @Override
+        public float getGeneralizedTravelCost(Edge edge, int legDurationSeconds, float traversalTimeMilliseconds) {
+            return traversalTimeMilliseconds;
+        }
+
+    }
 
 }

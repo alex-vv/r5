@@ -84,6 +84,8 @@ public class StreetRouter {
      */
     public TraversalTimeCalculator timeCalculator;
 
+    private TravelCostCalculator travelCostCalculator;
+
     // These are used for scaling coordinates in approximate distance calculations.
     // The lon value must be properly scaled to underestimate distances in the region where we're routing.
     private static final double MM_PER_UNIT_LAT_FIXED =
@@ -287,10 +289,10 @@ public class StreetRouter {
     }
 
     public StreetRouter (StreetLayer streetLayer) {
-        this(streetLayer, new BasicTraversalTimeCalculator(streetLayer, true));
+        this(streetLayer, new BasicTraversalTimeCalculator(streetLayer, true), new EdgeStore.DefaultTravelCostCalculator());
     }
 
-    public StreetRouter (StreetLayer streetLayer, TraversalTimeCalculator traversalTimeCalculator) {
+    public StreetRouter (StreetLayer streetLayer, TraversalTimeCalculator traversalTimeCalculator, TravelCostCalculator travelCostCalculator) {
         this.streetLayer = streetLayer;
         this.timeCalculator = streetLayer.edgeStore.edgeTraversalTimes;
         // If no per-edge timings were supplied in the network, fall back on simple default timings
@@ -298,6 +300,7 @@ public class StreetRouter {
             // TODO one of two things: 1) don't hardwire drive-on-right, or 2) https://en.wikipedia.org/wiki/Dagen_H
             this.timeCalculator = traversalTimeCalculator;
         }
+        this.travelCostCalculator = travelCostCalculator;
     }
 
 
@@ -588,7 +591,7 @@ public class StreetRouter {
             // explore edges leaving this vertex
             edgeList.forEach(eidx -> {
                 edge.seek(eidx);
-                State s1 = edge.traverse(s0, streetMode, profileRequest, timeCalculator);
+                State s1 = edge.traverse(s0, streetMode, profileRequest, timeCalculator, travelCostCalculator);
                 if (s1 != null && s1.distance <= distanceLimitMm && s1.getDurationSeconds() < tmpTimeLimitSeconds) {
                     if (!isDominated(s1)) {
                         // Calculate the heuristic (which involves a square root) only when the state is retained.
