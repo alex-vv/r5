@@ -108,23 +108,25 @@ public class Split {
             // below). This system has odd effects in areas with lots of one-way streets or divided roads.
             // TODO Really, we want to allow linking to two different edge-pairs in such cases but that is more complex.
             // Do not consider linking to edges that are not marked "linkable". This excludes e.g. tunnels and motorways.
-            if (!edge.allowsStreetMode(streetMode) || !edge.getFlag(EdgeStore.EdgeFlag.LINKABLE)) {
-                return true;
-            }
-            edge.advance();
-            if (!edge.allowsStreetMode(streetMode) || !edge.getFlag(EdgeStore.EdgeFlag.LINKABLE)) {
-                return true;
-            }
-            edge.retreat();
 
-            /*
+            // MZ: I am trying the "commented out" block referred to in the previous paragraph, because
+            // in Beamville, all the roads are one-way, so we need to link transit stops to one-way roads.
+
+//            if (!edge.allowsStreetMode(streetMode) || !edge.getFlag(EdgeStore.EdgeFlag.LINKABLE)) {
+//                return true;
+//            }
+//            edge.advance();
+//            if (!edge.allowsStreetMode(streetMode) || !edge.getFlag(EdgeStore.EdgeFlag.LINKABLE)) {
+//                return true;
+//            }
+//            edge.retreat();
+
             if (!edge.allowsStreetMode(streetMode)) {
                 // The edge does not allow forward traversal with the specified mode, try the backward edge.
                 edge.advance();
                 // If backward traversal is also not allowed, skip this edge and try the next one.
                 if (!edge.allowsStreetMode(streetMode)) return true;
             }
-            */
 
             // The distance to this edge is the distance to the closest segment of its geometry.
             edge.forEachSegment((seg, fixedLat0, fixedLon0, fixedLat1, fixedLon1) -> {
