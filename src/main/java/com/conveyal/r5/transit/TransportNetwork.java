@@ -276,7 +276,9 @@ public class TransportNetwork implements Serializable {
 		TNBuilderConfig builderConfig = null;
 		//This can exit program if json file has errors.
 		builderConfig = loadJson(new File(directory, BUILDER_CONFIG_FILENAME));
-		for (File file : directory.listFiles()) {
+        File[] files = directory.listFiles();
+        Arrays.sort(files, Comparator.comparing(File::getName));
+        for (File file : files) {
 			switch (InputFileType.forFile(file)) {
 				case GTFS:
 					LOG.info("Found GTFS file {}", file);
