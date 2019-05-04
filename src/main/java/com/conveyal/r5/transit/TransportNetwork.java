@@ -7,7 +7,6 @@ import com.conveyal.r5.analyst.WebMercatorGridPointSet;
 import com.conveyal.r5.analyst.error.TaskError;
 import com.conveyal.r5.analyst.fare.InRoutingFareCalculator;
 import com.conveyal.r5.analyst.scenario.Scenario;
-import com.conveyal.r5.analyst.fare.InRoutingFareCalculator;
 import com.conveyal.r5.common.JsonUtilities;
 import com.conveyal.r5.kryo.KryoNetworkSerializer;
 import com.conveyal.r5.point_to_point.builder.TNBuilderConfig;
@@ -28,6 +27,7 @@ import java.io.Serializable;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -295,7 +295,9 @@ public class TransportNetwork implements Serializable {
 		TNBuilderConfig builderConfig = null;
 		//This can exit program if json file has errors.
 		builderConfig = loadJson(new File(directory, BUILDER_CONFIG_FILENAME));
-		for (File file : directory.listFiles()) {
+        File[] files = directory.listFiles();
+        Arrays.sort(files, Comparator.comparing(File::getName));
+        for (File file : files) {
 			switch (InputFileType.forFile(file)) {
 				case GTFS:
 					LOG.info("Found GTFS file {}", file);
