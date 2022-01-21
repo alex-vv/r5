@@ -176,22 +176,20 @@ public class TransportNetwork implements Serializable {
 
     /**
      * Allows us to disable island pruning by setting two extra booleans to false. Used by the BEAM team (AAC 17/09/18)
+     *
+     * @param removeIslands Set to false to disable island pruning.
+     * @param saveVertexIndex Set to false to disable island pruning.
+     * @param linkRadiusMeters Radius value for split operation. (Added for BEAM to pass arbitrary value)
      */
     public static TransportNetwork fromFiles(String osmSourceFile, List<String> gtfsSourceFiles,
                                              TNBuilderConfig tnBuilderConfig,  boolean removeIslands,
-                                             boolean saveVertexIndex){
-        return fromFiles(osmSourceFile, gtfsSourceFiles, null, tnBuilderConfig, removeIslands, saveVertexIndex);
+                                             boolean saveVertexIndex, double linkRadiusMeters){
+        return fromFiles(osmSourceFile, gtfsSourceFiles, null, tnBuilderConfig, removeIslands, saveVertexIndex, linkRadiusMeters);
     }
 
-    /**
-     * Allows us to disable island pruning by setting two extra booleans to false. Used by the BEAM team (AAC 17/09/18)
-     *
-     * @[param removeIslands Set to false to disable island pruning.
-     * @param saveVertexIndex Set to false to disable island pruning.
-     */
     public static TransportNetwork fromFiles(String osmSourceFile, List<String> gtfsSourceFiles, List<GTFSFeed> feeds,
                                              TNBuilderConfig tnBuilderConfig,  boolean removeIslands,
-                                             boolean saveVertexIndex){
+                                             boolean saveVertexIndex, double linkRadiusMeters){
         System.out.println("Summarizing builder config: " + BUILDER_CONFIG_FILENAME);
         System.out.println(tnBuilderConfig);
         File dir = new File(osmSourceFile).getParentFile();
@@ -208,7 +206,7 @@ public class TransportNetwork implements Serializable {
         StreetLayer streetLayer = new StreetLayer(tnBuilderConfig);
         transportNetwork.streetLayer = streetLayer;
         streetLayer.parentNetwork = transportNetwork;
-        streetLayer.loadFromOsm(osm, removeIslands, saveVertexIndex); // Only line changed
+        streetLayer.loadFromOsm(osm, removeIslands, saveVertexIndex, linkRadiusMeters);
         osm.close();
 
         // The street index is needed for associating transit stops with the street network
@@ -240,7 +238,7 @@ public class TransportNetwork implements Serializable {
         // The street index is needed for associating transit stops with the street network.
         // FIXME indexStreets is called three times: in StreetLayer::loadFromOsm, just after loading the OSM, and here
         streetLayer.indexStreets();
-        streetLayer.associateStops(transitLayer);
+        streetLayer.associateStops(transitLayer, linkRadiusMeters);
         // Edge lists must be built after all inter-layer linking has occurred.
         streetLayer.buildEdgeLists();
         transitLayer.rebuildTransientIndexes();
@@ -274,7 +272,15 @@ public class TransportNetwork implements Serializable {
 	 * @return
 	 * @throws DuplicateFeedException
 	 */
-	public static TransportNetwork fromDirectory (File directory, boolean removeIslands, boolean saveVertexIndex)
+    public static TransportNetwork fromDirectory (File directory, boolean removeIslands, boolean saveVertexIndex)
+            throws DuplicateFeedException {
+        return fromDirectory(directory, removeIslands, saveVertexIndex, StreetLayer.LINK_RADIUS_METERS);
+    }
+
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    public static TransportNetwork fromDirectory (File directory, boolean removeIslands, boolean saveVertexIndex, double linkRadiusMeters)
 			throws DuplicateFeedException {
 		File osmFile = null;
 		List<String> gtfsFiles = new ArrayList<>();
@@ -308,7 +314,7 @@ public class TransportNetwork implements Serializable {
 			LOG.error("An OSM PBF file is required to build a network.");
 			return null;
 		} else {
-			return fromFiles(osmFile.getAbsolutePath(), gtfsFiles, builderConfig, removeIslands, saveVertexIndex);
+			return fromFiles(osmFile.getAbsolutePath(), gtfsFiles, builderConfig, removeIslands, saveVertexIndex, linkRadiusMeters);
 		}
 	}
 
