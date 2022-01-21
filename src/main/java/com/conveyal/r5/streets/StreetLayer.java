@@ -246,6 +246,13 @@ public class StreetLayer implements Serializable, Cloneable {
 
     /** Load OSM, optionally removing floating subgraphs (recommended) */
     public void loadFromOsm (OSM osm, boolean removeIslands, boolean saveVertexIndex) {
+        loadFromOsm(osm, removeIslands, saveVertexIndex, LINK_RADIUS_METERS);
+    }
+
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    public void loadFromOsm (OSM osm, boolean removeIslands, boolean saveVertexIndex, double linkRadiusMeters) {
         if (!osm.intersectionDetection)
             throw new IllegalArgumentException("Intersection detection not enabled on OSM source");
 
@@ -318,7 +325,7 @@ public class StreetLayer implements Serializable, Cloneable {
         this.indexStreets();
 
         buildParkAndRideAreas(parkAndRideWays);
-        buildParkAndRideNodes(parkAndRideNodes);
+        buildParkAndRideNodes(parkAndRideNodes, linkRadiusMeters);
 
         VertexStore.Vertex vertex = vertexStore.getCursor();
         long numOfParkAndRides = 0;
@@ -501,7 +508,10 @@ public class StreetLayer implements Serializable, Cloneable {
         }
     }
 
-    private void buildParkAndRideNodes (List<Node> nodes) {
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    private void buildParkAndRideNodes (List<Node> nodes, double linkRadiusMeters) {
         VertexStore.Vertex v = vertexStore.getCursor();
         for (Node node : nodes) {
             int vidx = vertexStore.addVertex(node.getLat(), node.getLon());
@@ -511,7 +521,7 @@ public class StreetLayer implements Serializable, Cloneable {
             ParkRideParking parkRideParking = new ParkRideParking(vidx, node.getLat(), node.getLon(), node);
             parkRideLocationsMap.put(vidx, parkRideParking);
 
-            int targetWalking = getOrCreateVertexNear(node.getLat(), node.getLon(), StreetMode.WALK);
+            int targetWalking = getOrCreateVertexNear(node.getLat(), node.getLon(), StreetMode.WALK, linkRadiusMeters);
             if (targetWalking == -1) {
                 LOG.warn("Could not link park and ride node at ({}, {}) to the street network.",
                         node.getLat(), node.getLon());
@@ -528,7 +538,7 @@ public class StreetLayer implements Serializable, Cloneable {
             created.allowAllModes();
             created.setFlag(EdgeStore.EdgeFlag.LINK);
 
-            int targetDriving = getOrCreateVertexNear(node.getLat(), node.getLon(), StreetMode.CAR);
+            int targetDriving = getOrCreateVertexNear(node.getLat(), node.getLon(), StreetMode.CAR, linkRadiusMeters);
             //If both CAR and WALK links would connect to the same edge we can skip new useless edge
             if (targetDriving == targetWalking) {
                 continue;
@@ -1132,8 +1142,15 @@ public class StreetLayer implements Serializable, Cloneable {
      *         or -1 if no such vertex could be found or created.
      */
     public int getOrCreateVertexNear(double lat, double lon, StreetMode streetMode) {
+        return getOrCreateVertexNear(lat, lon, streetMode, LINK_RADIUS_METERS);
+    }
 
-        Split split = findSplit(lat, lon, LINK_RADIUS_METERS, streetMode);
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    public int getOrCreateVertexNear(double lat, double lon, StreetMode streetMode, double linkRadiusMeters) {
+
+        Split split = findSplit(lat, lon, linkRadiusMeters, streetMode);
         if (split == null) {
             // No linking site was found within range.
             return -1;
@@ -1274,8 +1291,15 @@ public class StreetLayer implements Serializable, Cloneable {
      * @return the vertex of the newly created vertex at the supplied coordinates.
      */
     public int createAndLinkVertex (double lat, double lon) {
+        return createAndLinkVertex(lat, lon, LINK_RADIUS_METERS);
+    }
+
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    public int createAndLinkVertex (double lat, double lon, double linkRadiusMeters) {
         int stopVertex = vertexStore.addVertex(lat, lon);
-        int streetVertexIndex = getOrCreateVertexNear(lat, lon, StreetMode.WALK);
+        int streetVertexIndex = getOrCreateVertexNear(lat, lon, StreetMode.WALK, linkRadiusMeters);
         if (streetVertexIndex == -1) {
             return -1; // Unlinked
         }
@@ -1326,8 +1350,15 @@ public class StreetLayer implements Serializable, Cloneable {
      * between the two.
      */
     public void associateStops (TransitLayer transitLayer) {
+        associateStops(transitLayer, LINK_RADIUS_METERS);
+    }
+
+    /**
+     * Added for BEAM to pass arbitrary linkRadiusMeters value.
+     */
+    public void associateStops (TransitLayer transitLayer, double linkRadiusMeters) {
         for (Stop stop : transitLayer.stopForIndex) {
-            int stopVertex = createAndLinkVertex(stop.stop_lat, stop.stop_lon);
+            int stopVertex = createAndLinkVertex(stop.stop_lat, stop.stop_lon, linkRadiusMeters);
             transitLayer.streetVertexForStop.add(stopVertex); // This is always a valid, unique vertex index.
             // The inverse stopForStreetVertex map is a transient, derived index and will be built later.
         }
